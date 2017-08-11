@@ -54,6 +54,11 @@ public:
     static void setLevel(System system, Level level);
     
     /*
+     Returns what level a specific System is set to.
+     */
+    static Level checkLevel(System system);
+    
+    /*
      Used to log a message to the console.
      For consistency, all messages should be outputted to the console used this method.
      
@@ -65,6 +70,16 @@ public:
      Note, OFF should not be used to log messages.
      */
     static bool log(std::string message, System system, Level level);
+    
+    /*
+     Returns the string representation of a System enum value.
+     */
+    static std::string getSystemName(System system);
+    
+    /*
+     Returns the string representation of a Level enum value.
+     */
+    static std::string getLevelName(Level level);
     
 //public
     
@@ -85,6 +100,8 @@ This should be updated everytime an enum is added or removed from System.
      Such as, control[0] corresponds to the first enum value in System(in this case OFF).
      */
     static Level systemLevels[SYSTEM_COUNT];
+    
+    static std::mutex systemLevelsMutex;
     
     /*
      This holds the messages that are to be printed out.
@@ -130,17 +147,7 @@ This should be updated everytime an enum is added or removed from System.
      */
     static void printLoop();
     
-    /*
-     Returns the string representation of a System enum value.
-     */
-    static std::string getSystemName(System system);
-    
-    /*
-     Returns the string representation of a Level enum value.
-     */
-    static std::string getLevelName(Level level);
-};
-
 //private
+};
 
 #endif /* Logger_hpp */

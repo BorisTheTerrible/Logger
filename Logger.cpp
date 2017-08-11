@@ -16,6 +16,8 @@
 
 Logger::Level Logger::systemLevels[SYSTEM_COUNT];
 
+std::mutex Logger::systemLevelsMutex;
+
 std::queue<std::string> Logger::messageQueue;
 
 std::mutex Logger::messageQueueMutex;
@@ -71,6 +73,9 @@ void Logger::printLoop()
 
         messageQueueMutex.unlock();
         
+        /*
+         Waits until log() is called and notifies that their are messages available.
+         */
         printLoopConditionVariable.wait(printLoopLock);
     }
 }
@@ -105,6 +110,9 @@ bool Logger::log(std::string message, Logger::System system, Logger::Level level
         messageQueue.push(stringStream.str());
         messageQueueMutex.unlock();
         
+        /*
+         Notifies the printLoopThread that there are messages available to be printed to console.
+         */
         printLoopConditionVariable.notify_one();
         
         return true;
@@ -115,12 +123,25 @@ bool Logger::log(std::string message, Logger::System system, Logger::Level level
 
 void Logger::setLevel(Logger::System system, Logger::Level level)
 {
+    systemLevelsMutex.lock();
     systemLevels[system] = level;
+    systemLevelsMutex.unlock();
     
     std::stringstream messageStream;
     messageStream << getSystemName(system) << " has been set to " << getLevelName(level);
     
     Logger::log(messageStream.str(), Logger::System::LOGGER, Logger::Level::INFO);
+}
+
+Logger::Level Logger::checkLevel(Logger::System system)
+{
+    Level level;
+    
+    systemLevelsMutex.lock();
+    level = systemLevels[system];
+    systemLevelsMutex.unlock();
+    
+    return level;
 }
 
 std::string Logger::getSystemName(Logger::System system)
