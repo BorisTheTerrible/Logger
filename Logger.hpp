@@ -60,6 +60,8 @@ public:
      Will only output the message to the console if the specified system's level is of equal or higher value.
      However, OFF is a special case that will ignore all attempts to log for the specific System.
      
+     This method returns true if the message will be outputted to console, it returns false if it won't.
+     
      Note, OFF should not be used to log messages.
      */
     static bool log(std::string message, System system, Level level);
@@ -82,28 +84,34 @@ This should be updated everytime an enum is added or removed from System.
      The array values corresponde to the Level enum values.
      Such as, control[0] corresponds to the first enum value in System(in this case OFF).
      */
-    static Level control[SYSTEM_COUNT];
+    static Level systemLevels[SYSTEM_COUNT];
     
     /*
      This holds the messages that are to be printed out.
      */
-    static std::queue<std::string> activeMessageQueue;
+    static std::queue<std::string> messageQueue;
     
     /*
-     This the thread that prints out the messages to the console.
-     */
-    static std::thread * printLoopThread;
-    
-    /*
-     This locks activeMessageQueue from being accessed simultaneously.
+     This locks messageQueue from being accessed simultaneously.
      */
     static std::mutex messageQueueMutex;
     
     /*
-     This locks the print loop thread.
-     It is unlocked whenever log() is called so that the print loop is only running when there is something to print.
+     This thread runs the printLoop() method that prints messages in the messageQueue to the console.
+     */
+    static std::thread * printLoopThread;
+    
+    /*
+     This is used for the printLoopConditionVariable.
      */
     static std::mutex printLoopMutex;
+    
+    /*
+     The printLoop() method uses this to wait until messages are available to be printed out.
+     
+     The log() method uses this to notify the printLoopThread that messages are available in the messageQueue.
+     */
+    static std::condition_variable printLoopConditionVariable;
     
     /*
      This defines whether or not intialize() has been called or not.
@@ -117,6 +125,9 @@ This should be updated everytime an enum is added or removed from System.
      */
     static bool intialize();
     
+    /*
+     This method is called by the printLoopThread and continously prints message from the messageQueue to the console.
+     */
     static void printLoop();
     
     /*

@@ -14,15 +14,17 @@
 #include <iomanip>
 #include <sstream>
 
-Logger::Level Logger::control[SYSTEM_COUNT];
+Logger::Level Logger::systemLevels[SYSTEM_COUNT];
 
-std::queue<std::string> Logger::activeMessageQueue;
-
-std::thread * Logger::printLoopThread;
+std::queue<std::string> Logger::messageQueue;
 
 std::mutex Logger::messageQueueMutex;
 
+std::thread * Logger::printLoopThread;
+
 std::mutex Logger::printLoopMutex;
+
+std::condition_variable Logger::printLoopConditionVariable;
 
 bool Logger::isInitialized = intialize();
 
@@ -33,7 +35,7 @@ bool Logger::intialize()
      */
     for(int index = 0; index < SYSTEM_COUNT; index++)
     {
-        control[index] = Logger::Level::INFO;
+        systemLevels[index] = Logger::Level::INFO;
     }
     
     printLoopThread = new std::thread(printLoop);
@@ -43,64 +45,39 @@ bool Logger::intialize()
 
 void Logger::printLoop()
 {
-    std::unique_lock<std::mutex> uniqueLock(printLoopMutex);
-    
-    /*
-     Sets up the intial lock, so the lock inside the while loop will block until log() unlocks it.
-     */
-    printLoopMutex.lock();
+    std::unique_lock<std::mutex> printLoopLock(printLoopMutex);
     
     while(true)
     {
-        /*
-         Blocks until log() unlocks the mutex.
-         
-         Once it loops back around, it will block on this again until log() unlocks the mutex.
-         */
-        std::cout << "TH:prelock" << std::endl;
-        
-        try
-        {
-            printLoopMutex.lock();
-        }
-        catch (std::exception ex)
-        {
-            std::cout << ex.what() << std::endl;
-        }
-        
         messageQueueMutex.lock();
-        std::cout << "TH:lock" << std::endl;
         
         /*
          Prints out the messages until the message queue is empty.
          */
-        while(!activeMessageQueue.empty())
+        while(!messageQueue.empty())
         {
-            std::string message = activeMessageQueue.front();
-            activeMessageQueue.pop();
+            std::string message = messageQueue.front();
+            messageQueue.pop();
             
             /*
              Logger is meant to be low priority.
              So the message queue is unlocked incase something is trying to log a message.
              */
             messageQueueMutex.unlock();
-            std::cout << "TH:unlock" << std::endl;
-            //std::cout << message;
+            std::cout << message;
             
             messageQueueMutex.lock();
-            std::cout << "TH:lock1" << std::endl;
         }
 
         messageQueueMutex.unlock();
-        std::cout << "HT:unlock1" << std::endl;
         
-        //std::this_thread::sleep_for (std::chrono::milliseconds(10));
+        printLoopConditionVariable.wait(printLoopLock);
     }
 }
 
 bool Logger::log(std::string message, Logger::System system, Logger::Level level)
 {
-    if((level >= control[system]) && (control[system] != Logger::Level::OFF))
+    if((level >= systemLevels[system]) && (systemLevels[system] != Logger::Level::OFF))
     {
         using namespace std::chrono;
         
@@ -125,16 +102,10 @@ bool Logger::log(std::string message, Logger::System system, Logger::Level level
          Pushes the message to the message queue.
          */
         messageQueueMutex.lock();
-        //std::cout << "lock" << std::endl;
-        activeMessageQueue.push(stringStream.str());
+        messageQueue.push(stringStream.str());
         messageQueueMutex.unlock();
-        //std::cout << "unlock" << std::endl;
         
-        /*
-         Unlocks the print loop so it can print out the pushed message.
-         */
-        printLoopLock.try_lock();
-        printLoopLock.unlock();
+        printLoopConditionVariable.notify_one();
         
         return true;
     }
@@ -144,7 +115,7 @@ bool Logger::log(std::string message, Logger::System system, Logger::Level level
 
 void Logger::setLevel(Logger::System system, Logger::Level level)
 {
-    control[system] = level;
+    systemLevels[system] = level;
     
     std::stringstream messageStream;
     messageStream << getSystemName(system) << " has been set to " << getLevelName(level);
