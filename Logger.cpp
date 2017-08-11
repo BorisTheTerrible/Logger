@@ -74,7 +74,7 @@ void Logger::printLoop()
         messageQueueMutex.unlock();
         
         /*
-         Waits until log() is called and notifies that their are messages available.
+         Waits until log() is called and notifies that there are messages available.
          */
         printLoopConditionVariable.wait(printLoopLock);
     }
