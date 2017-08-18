@@ -101,7 +101,7 @@ bool Logger::log(std::string message, Logger::System system, Logger::Level level
         stringStream << "[" << getSystemName(system) << "] ";
         stringStream << "[" << getLevelName(level) << "] ";
         stringStream << put_time(localtime(& nowTime), "[%Y-%m-%d] [%X] ");
-        stringStream << message << endl;
+        stringStream << message << "\n";
         
         /*
          Pushes the message to the message queue.
